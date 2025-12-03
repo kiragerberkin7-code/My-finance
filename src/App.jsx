@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import './App.css'
 
 function App() {
@@ -9,50 +9,94 @@ function App() {
   const [showQuickAdd, setShowQuickAdd] = useState(null)
   const [quickAmount, setQuickAmount] = useState('')
   const [quickDescription, setQuickDescription] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
 
-  const addTransaction = (e) => {
+  // Fetch transactions on mount
+  useEffect(() => {
+    fetchTransactions()
+  }, [])
+
+  const fetchTransactions = async () => {
+    try {
+      const response = await fetch('/api/transactions')
+      if (!response.ok) throw new Error('Failed to fetch transactions')
+      const data = await response.json()
+      setTransactions(data)
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const addTransaction = async (e) => {
     e.preventDefault()
     if (!description || !amount) {
       alert('Пожалуйста, заполните все поля')
       return
     }
 
-    const newTransaction = {
-      id: Date.now(),
-      description,
-      amount: parseFloat(amount),
-      type,
-      date: new Date().toLocaleDateString('ru-RU')
+    try {
+      const response = await fetch('/api/transactions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ description, amount: parseFloat(amount), type })
+      })
+
+      if (!response.ok) throw new Error('Failed to add transaction')
+
+      const newTransaction = await response.json()
+      setTransactions([newTransaction, ...transactions])
+      setDescription('')
+      setAmount('')
+      setType('expense')
+    } catch (err) {
+      alert('Ошибка при добавлении транзакции: ' + err.message)
     }
-
-    setTransactions([newTransaction, ...transactions])
-    setDescription('')
-    setAmount('')
-    setType('expense')
   }
 
-  const deleteTransaction = (id) => {
-    setTransactions(transactions.filter(t => t.id !== id))
+  const deleteTransaction = async (id) => {
+    try {
+      const response = await fetch(`/api/transactions/${id}`, {
+        method: 'DELETE'
+      })
+
+      if (!response.ok) throw new Error('Failed to delete transaction')
+
+      setTransactions(transactions.filter(t => t.id !== id))
+    } catch (err) {
+      alert('Ошибка при удалении транзакции: ' + err.message)
+    }
   }
 
-  const handleQuickAdd = (transactionType) => {
+  const handleQuickAdd = async (transactionType) => {
     if (!quickAmount) {
       alert('Пожалуйста, введите сумму')
       return
     }
 
-    const newTransaction = {
-      id: Date.now(),
-      description: quickDescription || (transactionType === 'income' ? 'Доход' : 'Расход'),
-      amount: parseFloat(quickAmount),
-      type: transactionType,
-      date: new Date().toLocaleDateString('ru-RU')
-    }
+    try {
+      const response = await fetch('/api/transactions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          description: quickDescription || (transactionType === 'income' ? 'Доход' : 'Расход'),
+          amount: parseFloat(quickAmount),
+          type: transactionType
+        })
+      })
 
-    setTransactions([newTransaction, ...transactions])
-    setShowQuickAdd(null)
-    setQuickAmount('')
-    setQuickDescription('')
+      if (!response.ok) throw new Error('Failed to add transaction')
+
+      const newTransaction = await response.json()
+      setTransactions([newTransaction, ...transactions])
+      setShowQuickAdd(null)
+      setQuickAmount('')
+      setQuickDescription('')
+    } catch (err) {
+      alert('Ошибка при добавлении транзакции: ' + err.message)
+    }
   }
 
   const totalIncome = transactions
@@ -64,6 +108,9 @@ function App() {
     .reduce((sum, t) => sum + t.amount, 0)
 
   const balance = totalIncome - totalExpense
+
+  if (loading) return <div className="app"><h1>Загрузка...</h1></div>
+  if (error) return <div className="app"><h1>Ошибка: {error}</h1></div>
 
   return (
     <div className="app">
