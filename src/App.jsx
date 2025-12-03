@@ -131,7 +131,7 @@ function App() {
                 </div>
                 <div className="transaction-amount">
                   <span className="amount">
-                    {t.type === 'income' ? '+' : '-'}{t.amount.toFixed(2)} ₽
+                    {t.type === 'income' ? '+' : '-'}{t.amount.toFixed(2)} $
                   </span>
                   <button 
                     className="delete-btn"
